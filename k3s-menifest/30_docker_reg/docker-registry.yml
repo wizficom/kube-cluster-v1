@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: registry
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry-pvc
+  namespace: registry
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 30Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docker-registry
+  namespace: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docker-registry
+  template:
+    metadata:
+      labels:
+        app: docker-registry
+    spec:
+      containers:
+      - name: registry
+        image: registry:2
+        ports:
+        - containerPort: 5000
+        env:
+        - name: REGISTRY_STORAGE_DELETE_ENABLED
+          value: "true"
+        # --- CORS 설정 시작 (UI 접속을 위해 필수) ---
+        - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin
+          value: "['https://registry-ui.labz.org']"
+        - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Methods
+          value: "[HEAD,GET,OPTIONS,DELETE]"
+        - name: REGISTRY_HTTP_HEADERS_Access-Control-Allow-Headers
+          value: "[Authorization,Accept,Cache-Control]"
+        - name: REGISTRY_HTTP_HEADERS_Access-Control-Expose-Headers
+          value: "[Docker-Content-Digest]"
+        # --- CORS 설정 끝 ---
+        volumeMounts:
+        - name: storage
+          mountPath: /var/lib/registry
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: registry-pvc
+
+---
+# 3. Registry Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-registry-service
+  namespace: registry
+spec:
+  selector:
+    app: docker-registry
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+
+---
+# 4. Web UI (프론트엔드)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry-ui
+  namespace: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry-ui
+  template:
+    metadata:
+      labels:
+        app: registry-ui
+    spec:
+      containers:
+      - name: registry-ui
+        image: joxit/docker-registry-ui:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: REGISTRY_URL 
+          value: https://registry.labz.org
+        - name: DELETE_IMAGES
+          value: "true"
+        - name: REGISTRY_TITLE
+          value: "My k3s Registry"
+
+---
+# 5. UI Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-ui-service
+  namespace: registry
+spec:
+  selector:
+    app: registry-ui
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+---
+# # 6. Ingress (새로 추가됨)
+# # NPM이 MetalLB -> Traefik으로 보낸 트래픽을 각 서비스로 분기 처리
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: registry-ingress
+#   namespace: registry
+# spec:
+#   rules:
+#   # 레지스트리 백엔드용 도메인
+#   - host: registry.labz.org
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: docker-registry-service
+#             port:
+#               number: 5000
+#   # UI용 도메인
+#   - host: registry-ui.labz.org
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: registry-ui-service
+#             port:
+#               number: 80
+
+# docker build --platform linux/arm64 -t registry.labz.org/labz-reg-test:v1 .
+# docker push registry.labz.org/labz-reg-test:v1 

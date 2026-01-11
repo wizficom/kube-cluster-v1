@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 2               # 파드(Pod) 개수 (원하는 만큼 조절 가능)
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest # 사용할 Nginx 이미지
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: html-volume
+          mountPath: /usr/share/nginx/html
+      volumes:
+      - name: html-volume
+        persistentVolumeClaim:
+          claimName: nginx-pvc
+
+---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: nginx-service
+# spec:
+#   selector:
+#     app: nginx
+#   ports:
+#     - protocol: TCP
+#       port: 8090              # 서비스가 노출할 포트
+#       targetPort: 80        # 컨테이너의 실제 포트
+#   type: LoadBalancer        # K3s의 내장 로드밸런서를 통해 외부 IP 할당
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  type: ClusterIP  # LoadBalancer -> ClusterIP 로 변경
+  ports:
+    - protocol: TCP
+      port: 8090      # 서비스 포트 (Ingress가 이 포트로 보냄)
+      targetPort: 80  # 컨테이너 포트

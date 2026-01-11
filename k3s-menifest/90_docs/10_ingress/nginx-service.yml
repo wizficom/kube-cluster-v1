@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress
+  namespace: web-svc
+  annotations:
+    # k3s의 기본 Ingress Controller인 Traefik을 사용한다는 명시 (생략 가능하나 권장)
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - host: my-nginx.local  # 접속할 도메인 주소 (테스트용)
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-service
+            port:
+              number: 8090 # Service에서 정의한 port와 일치해야 함

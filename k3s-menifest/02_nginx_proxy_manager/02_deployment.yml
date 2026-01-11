@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-proxy-manager
+  namespace: nginx-proxy-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-proxy-manager
+  template:
+    metadata:
+      labels:
+        app: nginx-proxy-manager
+    spec:
+      containers:
+        - name: nginx-proxy-manager
+          image: 'jc21/nginx-proxy-manager:2.13.5'
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+            - name: admin
+              containerPort: 81
+          env:
+            - name: DB_MYSQL_HOST
+              value: "npm-db" # MariaDB 서비스 이름
+            - name: DB_MYSQL_PORT
+              value: "3306"
+            - name: DB_MYSQL_USER
+              value: "npm"
+            - name: DB_MYSQL_PASSWORD
+              value: "npm"
+            - name: DB_MYSQL_NAME
+              value: "npm"
+            - name: DISABLE_IPV6
+              value: 'true'
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: letsencrypt
+              mountPath: /etc/letsencrypt
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: npm-data
+        - name: letsencrypt
+          persistentVolumeClaim:
+            claimName: npm-letsencrypt

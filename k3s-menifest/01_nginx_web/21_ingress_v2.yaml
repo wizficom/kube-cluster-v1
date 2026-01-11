@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress-v2
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: k3s-nginx.mylist.org  # 접속할 도메인 주소 (테스트용)
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-service
+            port:
+              number: 8090 # Service에서 정의한 port와 일치해야 함

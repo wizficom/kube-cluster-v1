@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-registry-app
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-registry-app
+  template:
+    metadata:
+      labels:
+        app: test-registry-app
+    spec:
+      containers:
+      - name: web
+        image: registry.labz.org/labz-reg-test:v1
+        ports:
+        - containerPort: 80
+        # 테스트 시에는 Always로 설정하여 항상 레지스트리에서 새 이미지를 시도하게 하는 것이 좋습니다.
+        imagePullPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-registry-service
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: test-registry-app
+  ports:
+    - protocol: TCP
+      port: 80                # 클러스터 내부에서 사용하는 서비스 포트
+      targetPort: 80          # 컨테이너 내부 포트 (Nginx 기본 포트)
+      nodePort: 30080         # (선택) 외부에서 접속할 포트 (30000-32767 사이)
+                              # 이 줄을 지우면 랜덤으로 할당됩니다.
